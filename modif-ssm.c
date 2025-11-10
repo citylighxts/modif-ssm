@@ -441,7 +441,7 @@ static void make_feasible_ssm(int m, int n, int cost[m][n], int supply[m], int d
 
         if (VERBOSE) {
             printf("   Setelah move -> at flc: %d, at slc: %d\n", alloc[i_flc][coorselisih], alloc[i_slc][coorselisih]);
-            print_supply_status(m, supply, total_alloc_baris);
+            // print_supply_status(m, supply, total_alloc_baris);
             print_alloc_matrix_int(m, n, alloc);
             long long tot = total_biaya(m, n, cost, alloc);
             printf("   Total cost sekarang = %lld\n", tot);
@@ -462,7 +462,7 @@ int main(void)
     for (int k = 1; k <= 35; k++) {
         if (optimal_solution[k] == -1) continue;
         char filename[20];
-        sprintf(filename, "testcase/n%02d.txt", k);
+        sprintf(filename, "n%02d.txt", k);
         FILE *in = fopen(filename, "r");
 
         if (in == NULL) {
