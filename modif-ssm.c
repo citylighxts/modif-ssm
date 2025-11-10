@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 #define VERBOSE 1
+#define VERBOSE_RECTANGLE_SEARCH 1
 
 // Nilai Optimal per data N01.N35 
 
@@ -89,7 +90,6 @@ static void print_supply_status(int m, int supply[], int total_alloc_baris[]) {
     printf("------------------------------------------------\n");
 }
 
-
 // Fase optimisasi: perbaikan rectangular (4-sudut) yang di-looping terus-menerus
 
 static void improve_with_rectangles(int m, int n, int cost[m][n], int alloc[m][n]) {
@@ -105,49 +105,98 @@ static void improve_with_rectangles(int m, int n, int cost[m][n], int alloc[m][n
         int best_r1 = -1, best_c1 = -1, best_r2 = -1, best_c2 = -1;
         int best_delta = 0;
         bool is_type2_move = false; // Flag untuk menandai tipe perbaikan
+        
+        int rect_counter = 0; // Menghitung jumlah rectangle yang dicek per iterasi
+        if (VERBOSE_RECTANGLE_SEARCH) {
+            printf("\n[Pencarian Iterasi %d] Memeriksa semua kemungkinan rectangle...\n", iter + 1);
+        }
 
         // Cari perbaikan terbaik di seluruh tabel
         for (int r1 = 0; r1 < m; r1++) {
             for (int c1 = 0; c1 < n; c1++) {
                 for (int r2 = r1 + 1; r2 < m; r2++) {
                     for (int c2 = c1 + 1; c2 < n; c2++) {
+                        
+                        rect_counter++;
+                        if (VERBOSE_RECTANGLE_SEARCH) {
+                            printf("---\n[rect-%03d] Cek (r%d,c%d)-(r%d,c%d)\n", 
+                                   rect_counter, r1+1, c1+1, r2+1, c2+1);
+                        }
+
                         // Tipe 1: Pindahkan alokasi DARI (r1,c1) & (r2,c2)
+                        // Donors: (r1,c1) , (r2,c2)
+                        // Penerima: (r1,c2) , (r2,c1)
+                        int delta1 = (cost[r1][c2] + cost[r2][c1]) - (cost[r1][c1] + cost[r2][c2]);
+                        
+                        // Cek Alokasi Donor Tipe 1
                         if (alloc[r1][c1] > 0 && alloc[r2][c2] > 0) {
-                            int delta = (cost[r1][c2] + cost[r2][c1]) - (cost[r1][c1] + cost[r2][c2]);
-                            if (delta < best_delta) {
-                                best_delta = delta;
+                            if (VERBOSE_RECTANGLE_SEARCH) {
+                                printf("    [T1] Cek donor (r%d,c%d)=%d, (r%d,c%d)=%d. OK.\n",
+                                       r1+1, c1+1, alloc[r1][c1], r2+1, c2+1, alloc[r2][c2]);
+                                printf("    [T1] Delta = (cost[r%d][c%d] + cost[r%d][c%d]) - (cost[r%d][c%d] + cost[r%d][c%d])\n",
+                                       r1+1, c2+1, r2+1, c1+1, r1+1, c1+1, r2+1, c2+1);
+                                printf("    [T1] Delta = (%d + %d) - (%d + %d) = %d\n",
+                                       cost[r1][c2], cost[r2][c1], cost[r1][c1], cost[r2][c2], delta1);
+                            }
+                            if (delta1 < best_delta) {
+                                best_delta = delta1;
                                 best_r1 = r1; best_c1 = c1;
                                 best_r2 = r2; best_c2 = c2;
                                 is_type2_move = false;
                                 if (VERBOSE) {
-                                    printf("[rect-candidate] perbaikan ditemukan: delta=%d at (r%d,c%d)-(r%d,c%d) [type1]\n",
-                                           delta, r1+1, c1+1, r2+1, c2+1);
+                                    printf("    [T1] => Perbaikan T1 ditemukan! Delta baru = %d.\n", delta1);
                                 }
+                            } else if (VERBOSE_RECTANGLE_SEARCH) {
+                                printf("    [T1] Skip: delta %d >= best_delta %d.\n", delta1, best_delta);
                             }
+                        } else if (VERBOSE_RECTANGLE_SEARCH) {
+                            printf("    [T1] Skip: donor (r%d,c%d)=%d atau (r%d,c%d)=%d adalah 0.\n",
+                                   r1+1, c1+1, alloc[r1][c1], r2+1, c2+1, alloc[r2][c2]);
                         }
 
+
                         // Tipe 2: Pindahkan alokasi DARI (r1,c2) & (r2,c1)
+                        // Donors: (r1,c2) , (r2,c1)
+                        // Penerima: (r1,c1) , (r2,c2)
+                        int delta2 = (cost[r1][c1] + cost[r2][c2]) - (cost[r1][c2] + cost[r2][c1]);
+
+                        // Cek Alokasi Donor Tipe 2
                         if (alloc[r1][c2] > 0 && alloc[r2][c1] > 0) {
-                            int delta = (cost[r1][c1] + cost[r2][c2]) - (cost[r1][c2] + cost[r2][c1]);
-                            if (delta < best_delta) {
-                                best_delta = delta;
+                             if (VERBOSE_RECTANGLE_SEARCH) {
+                                printf("    [T2] Cek donor (r%d,c%d)=%d, (r%d,c%d)=%d. OK.\n",
+                                       r1+1, c2+1, alloc[r1][c2], r2+1, c1+1, alloc[r2][c1]);
+                                printf("    [T2] Delta = (cost[r%d][c%d] + cost[r%d][c%d]) - (cost[r%d][c%d] + cost[r%d][c%d])\n",
+                                       r1+1, c1+1, r2+1, c2+1, r1+1, c2+1, r2+1, c1+1);
+                                printf("    [T2] Delta = (%d + %d) - (%d + %d) = %d\n",
+                                       cost[r1][c1], cost[r2][c2], cost[r1][c2], cost[r2][c1], delta2);
+                            }
+                            if (delta2 < best_delta) {
+                                best_delta = delta2;
                                 best_r1 = r1; best_c1 = c1;
                                 best_r2 = r2; best_c2 = c2;
                                 is_type2_move = true;
                                 if (VERBOSE) {
-                                    printf("[rect-candidate] perbaikan ditemukan: delta=%d at (r%d,c%d)-(r%d,c%d) [type2]\n",
-                                           delta, r1+1, c1+1, r2+1, c2+1);
+                                    printf("    [T2] => Perbaikan T2 ditemukan! Delta baru = %d.\n", delta2);
                                 }
+                            } else if (VERBOSE_RECTANGLE_SEARCH) {
+                                printf("    [T2] Skip: delta %d >= best_delta %d.\n", delta2, best_delta);
                             }
+                        } else if (VERBOSE_RECTANGLE_SEARCH) {
+                            printf("    [T2] Skip: donor (r%d,c%d)=%d atau (r%d,c%d)=%d adalah 0.\n",
+                                   r1+1, c2+1, alloc[r1][c2], r2+1, c1+1, alloc[r2][c1]);
                         }
                     }
                 }
             }
         }
+        
+        if (VERBOSE_RECTANGLE_SEARCH) {
+             printf("---\n[Pencarian Selesai] Total %d rectangle dicek. Best delta ditemukan: %d\n", rect_counter, best_delta);
+        }
 
         // Jika setelah dicek semua kemungkinan tidak ada delta negatif, optimasi selesai.
         if (best_delta >= 0) {
-            if (VERBOSE) printf("Tidak ditemukan rectangle yang memperbaiki (best_delta=%d). Optimisasi rectangle selesai.\n", best_delta);
+            if (VERBOSE) printf("\nTidak ditemukan rectangle yang memperbaiki (best_delta=%d). Optimisasi rectangle selesai.\n", best_delta);
             break; // Keluar dari loop while(true)
         }
         
@@ -158,7 +207,7 @@ static void improve_with_rectangles(int m, int n, int cost[m][n], int alloc[m][n
         if (VERBOSE) {
             printf("\n--- Perbaikan iterasi %d ---\n", iter);
             printf(" Koordinat rectangle: (r%d,c%d), (r%d,c%d)  |  tipe perbaikan: %s  |  delta=%d\n",
-                   r1+1, c1+1, r2+1, c2+1, is_type2_move ? "type2" : "type1", best_delta);
+                   r1+1, c1+1, r2+1, c2+1, is_type2_move ? "Tipe 2" : "Tipe 1", best_delta);
             printf(" Nilai sebelum: (r%d,c%d)=%d, (r%d,c%d)=%d, (r%d,c%d)=%d, (r%d,c%d)=%d\n",
                    r1+1, c1+1, alloc[r1][c1], r1+1, c2+1, alloc[r1][c2], r2+1, c1+1, alloc[r2][c1], r2+1, c2+1, alloc[r2][c2]);
         }
@@ -167,6 +216,16 @@ static void improve_with_rectangles(int m, int n, int cost[m][n], int alloc[m][n
         if (!is_type2_move) {
             // Tipe 1: Kurangi dari (r1,c1) & (r2,c2)
             theta = alloc[r1][c1] < alloc[r2][c2] ? alloc[r1][c1] : alloc[r2][c2];
+            
+            if (VERBOSE) {
+                printf(" Tentukan theta (T1): min(alloc[r%d][c%d], alloc[r%d][c%d]) = min(%d, %d) = %d\n",
+                       r1+1, c1+1, r2+1, c2+1, alloc[r1][c1], alloc[r2][c2], theta);
+                printf(" Pergeseran (theta=%d):\n", theta);
+                printf("  (r%d,c%d) [penerima] = %d + %d = %d\n", r1+1, c2+1, alloc[r1][c2], theta, alloc[r1][c2] + theta);
+                printf("  (r%d,c%d) [penerima] = %d + %d = %d\n", r2+1, c1+1, alloc[r2][c1], theta, alloc[r2][c1] + theta);
+                printf("  (r%d,c%d) [donor]    = %d - %d = %d\n", r1+1, c1+1, alloc[r1][c1], theta, alloc[r1][c1] - theta);
+                printf("  (r%d,c%d) [donor]    = %d - %d = %d\n", r2+1, c2+1, alloc[r2][c2], theta, alloc[r2][c2] - theta);
+            }
             if (theta <= 0) continue; 
 
             alloc[r1][c2] += theta;
@@ -176,6 +235,16 @@ static void improve_with_rectangles(int m, int n, int cost[m][n], int alloc[m][n
         } else {
             // Tipe 2: Kurangi dari (r1,c2) & (r2,c1)
             theta = alloc[r1][c2] < alloc[r2][c1] ? alloc[r1][c2] : alloc[r2][c1];
+            
+             if (VERBOSE) {
+                 printf(" Tentukan theta (T2): min(alloc[r%d][c%d], alloc[r%d][c%d]) = min(%d, %d) = %d\n",
+                       r1+1, c2+1, r2+1, c1+1, alloc[r1][c2], alloc[r2][c1], theta);
+                printf(" Pergeseran (theta=%d):\n", theta);
+                printf("  (r%d,c%d) [penerima] = %d + %d = %d\n", r1+1, c1+1, alloc[r1][c1], theta, alloc[r1][c1] + theta);
+                printf("  (r%d,c%d) [penerima] = %d + %d = %d\n", r2+1, c2+1, alloc[r2][c2], theta, alloc[r2][c2] + theta);
+                printf("  (r%d,c%d) [donor]    = %d - %d = %d\n", r1+1, c2+1, alloc[r1][c2], theta, alloc[r1][c2] - theta);
+                printf("  (r%d,c%d) [donor]    = %d - %d = %d\n", r2+1, c1+1, alloc[r2][c1], theta, alloc[r2][c1] - theta);
+            }
             if (theta <= 0) continue; 
 
             alloc[r1][c1] += theta;
@@ -194,13 +263,10 @@ static void improve_with_rectangles(int m, int n, int cost[m][n], int alloc[m][n
     }
 
     if (VERBOSE) {
-        // --- TAMBAHAN DI SINI ---
         printf("\n[RECTANGLE SUMMARY] Total perbaikan rectangle yang diterapkan: %d iterasi.\n", iter);
-        // -------------------------
         printf("=== RECTANGLE IMPROVEMENT PHASE: END ===\n");
     }
 }
-// Fase SSM feasibility 
 
 static void make_feasible_ssm(int m, int n, int cost[m][n], int supply[m], int demand[n], int alloc[m][n]) {
     for (int i = 0; i < m; i++)
