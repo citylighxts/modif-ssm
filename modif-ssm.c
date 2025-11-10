@@ -462,7 +462,7 @@ int main(void)
     for (int k = 1; k <= 35; k++) {
         if (optimal_solution[k] == -1) continue;
         char filename[20];
-        sprintf(filename, "n%02d.txt", k);
+        sprintf(filename, "testcase/n%02d.txt", k);
         FILE *in = fopen(filename, "r");
 
         if (in == NULL) {
